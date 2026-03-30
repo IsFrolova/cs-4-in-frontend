@@ -1,19 +1,33 @@
 class BCDNumber {
     constructor(value) {
-        if (value < 0) {
-            throw new Error('Число должно быть положительным');
+        
+        if (
+            (typeof value !== 'number' && typeof value !== 'bigint') ||
+            value < 0 ||
+            (typeof value === 'number' && !Number.isInteger(value))
+        ) {
+            throw new Error('Только неотрицательные целые числа');
         }
 
-        const digits = value.toString().split('').map(d => parseInt(d, 10));
+        let temp = typeof value === 'bigint' ? value : BigInt(value);
+        const digits = [];
+
+        if (temp === 0n) {
+            digits.push(0);
+        } else {
+            while (temp > 0n) {
+                digits.push(Number(temp % 10n));
+                temp /= 10n;
+            }
+            digits.reverse();
+        }
 
         this.size = digits.length;
         this.digitsArray = new Uint8Array(this.size);
 
-        for (let i = 0; i < digits.length; i++) {
+        for (let i = 0; i < this.size; i++) {
             this.digitsArray[i] = digits[i];
         }
-
-        this.originalValue = typeof value === 'bigint' ? value : BigInt(value);
     }
 
     toString() {
@@ -24,37 +38,26 @@ class BCDNumber {
         return result;
     }
 
-    toNumber() {
-        let result = 0;
-        let pow = 0;
-        for (let i = this.size - 1; i >= 0; i--) {
-            result += this.digitsArray[i] * 10 ** pow;
-            pow++;
+    toBigint() {
+        let result = 0n;
+        for (let i = 0; i < this.size; i++) {
+            result = result * 10n + BigInt(this.digitsArray[i]);
         }
         return result;
     }
 
-    toBigint() {
-        let binaryString = '';
-        
-        for (let i = 0; i < this.size; i++) {
-            let digit = this.digitsArray[i];
-            let binary = digit.toString(2);
-            
-            while (binary.length < 4) {
-                binary = '0' + binary;
-            }
-            
-            binaryString += binary;
+    toNumber() {
+        const big = this.toBigint();
+        if (big > BigInt(Number.MAX_SAFE_INTEGER)) {
+            throw new Error('Число слишком большое для Number');
         }
-        
-        return BigInt('0b' + binaryString);
+        return Number(big);
     }
 
     at(index) {
         const idx = index >= 0 ? index : this.size + index;
         if (idx < 0 || idx >= this.size) {
-            throw new Error('Неверный индекс');
+            return undefined; // как в Array.at
         }
         return this.digitsArray[idx];
     }
